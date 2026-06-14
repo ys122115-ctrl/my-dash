@@ -31,17 +31,17 @@ def process_data_for_dashboard(df, start_date, end_date):
     p_df = df[(df['출고완료'] >= start) & (df['출고완료'] <= end)].copy()
     if p_df.empty: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0.0
 
-    # --- [🔥 B2C 3대 유형 매핑 복구] ---
+    # --- [B2C 3대 유형 매핑] ---
     b2c_mapping = {'B2C': '국내B2C', 'B2C(우체국)': '국내B2C', '택배무상출고': '무상출고', 
                    '택배무상출고(ERP)': '무상출고', '택배판매출고(ERP)': '무상출고', '해외출고': '해외B2C'}
     df_b2c = p_df[p_df.iloc[:, 6].isin(b2c_mapping.keys())].copy()
     df_b2c['변환유형'] = df_b2c.iloc[:, 6].map(b2c_mapping)
     
-    # 1. B2C 유형별 요약 (국내B2C, 해외B2C, 무상출고 3개 축 유지)
+    # 1. B2C 유형별 요약
     b2c_res = df_b2c.groupby('변환유형').agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
     b2c_res.columns = ['출고유형', '출고건수', '출고수량']
     
-    # 2. B2C 거래처별 집계 (★올리브영 같은 군더더기가 안 섞이게 오직 '국내B2C' 즉, 순수 B2C/우체국만 필터링)
+    # 2. B2C 거래처별 집계 (오직 '국내B2C' 즉, 순수 B2C 주문만 필터링)
     df_b2c_pure = df_b2c[df_b2c['변환유형'] == '국내B2C'].copy()
     customer_col = df.columns[8]  # 8번째 컬럼: 거래처명
     b2c_cust_res = df_b2c_pure.groupby(customer_col).agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
@@ -97,7 +97,7 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     # B2C 전주 대비 요약 섹션
     # -----------------------------------------------------------------
     st.subheader(f"🛒 B2C 전주 대비 요약 ({n_r[0]} ~ {n_r[1]})")
-    b2c_categories = ['국내B2C', '해외B2C', '무상출고']  # 3대 축 정상화
+    b2c_categories = ['국내B2C', '해외B2C', '무상출고']
     b2c_cols = st.columns(3)
 
     for i, cat in enumerate(b2c_categories):
@@ -128,12 +128,10 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         b2c_merged = b2c_merged[['거래처', '출고건수_과거', '출고건수_현재', '건수 증감', '출고수량_과거', '출고수량_현재', '수량 증감']]
         b2c_merged.columns = ['거래처', '과거 건수', '현재 건수', '건수 증감', '과거 수량(EA)', '현재 수량(EA)', '수량 증감']
         
-        # 건수 기준으로 내림차순 정렬
         b2c_merged = b2c_merged.sort_values(by='현재 건수', ascending=False)
         
         tab1, tab2 = st.tabs(["📊 거래처별 건수 비교 그래프", "📄 상세 데이터 표"])
         with tab1:
-            # 과거 건수와 현재 건수 막대를 이웃하게 배치하여 직관적 비교
             fig = px.bar(
                 b2c_merged.head(10), x='거래처', y=['과거 건수', '현재 건수'],
                 barmode='group',
@@ -187,15 +185,15 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         else: st.info("B2B 차트 데이터가 없습니다.")
     with c2: 
         if not n_b2c.empty:
-            # 🔥 [요청 반영] 3대 유형(국내B2C, 해외B2C, 무상출고)으로 깔끔하게 원형 차트 출력
             st.plotly_chart(px.pie(n_b2c, names='출고유형', values='출고건수', title="B2C 비율", hole=0.4), use_container_width=True)
         else: st.info("B2C 차트 데이터가 없습니다.")
     
     st.markdown("**[ B2B 팀별 출고 현황 ]**")
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
+        # 🔥 [형님 피드백 반영] 불필요한 안내문구를 완전히 지워서 여백의 미를 살렸습니다!
         selected_teams = st.multiselect(
-            "조회할 팀을 선택/해제하세요 (기본: 전체 선택되어 있습니다)", 
+            "", 
             options=all_teams, 
             default=all_teams
         )
