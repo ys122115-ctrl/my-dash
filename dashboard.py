@@ -61,7 +61,7 @@ def process_data_for_dashboard(df, start_date, end_date):
     df_b2b['추가수량값'] = np.where(df_b2b['조정요청일'] > df_b2b['최초등록영업일'], df_b2b['출하수량'], 0)
     
     team_col = df.columns[9]
-    u_df = df_b2b.groupby('건수기준').agg({team_col: 'first', '출고완 완료': 'first', '요청일자': 'max', '조정요청일': 'max'}).reset_index()
+    u_df = df_b2b.groupby('건수기준').agg({team_col: 'first', '출고완료': 'first', '요청일자': 'max', '조정요청일': 'max'}).reset_index()
     u_df['리드타임'] = (u_df['출고완료'] - u_df['조정요청일']).dt.total_seconds() / 86400
     u_df['긴급건'] = u_df['리드타임'].apply(lambda x: 1 if pd.notna(x) and x <= 2 else 0)
     
@@ -191,17 +191,24 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     st.markdown("**[ B2B 팀별 출고 현황 ]**")
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
-        selected_teams = st.multiselect(
+        
+        # 1단계: 멀티셀렉트로 조회할 팀 고르기
+        chosen_teams = st.multiselect(
             "", 
             options=all_teams, 
             default=all_teams,
             label_visibility="collapsed"
         )
         
-        n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
-        
-        if not n_b2b_filtered.empty:
-            # 🔥 [형님 요청 반영] 표의 순서가 위에 배치된 빨간 칩 순서와 100% 똑같이 매칭되도록 강제 정렬!
+        if chosen_teams:
+            # 2단계: 🔥 [형님 핵심 요청 반영] 골라진 팀들을 마우스 드래그로 순서 배열할 수 있는 컴포넌트 등장!!
+            from streamlit_sortables import sort_items
+            st.markdown("↕️ **마우스로 드래그해서 표의 순서를 자유롭게 배열하세요:**")
+            selected_teams = sort_items(chosen_teams, direction="horizontal")
+            
+            n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
+            
+            # 드래그한 순서 그대로 표 정렬 강제 적용!
             n_b2b_filtered['팀'] = pd.Categorical(n_b2b_filtered['팀'], categories=selected_teams, ordered=True)
             n_b2b_filtered = n_b2b_filtered.sort_values('팀').reset_index(drop=True)
             
