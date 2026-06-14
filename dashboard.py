@@ -191,26 +191,20 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     st.markdown("**[ B2B 팀별 출고 현황 ]**")
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
+        all_teams.sort() # 가나다 순 기본 세팅
         
-        if 'selected_b2b' not in st.session_state or 'excluded_b2b' not in st.session_state or st.session_state.get('last_file') != up.name:
-            st.session_state.last_file = up.name
-            st.session_state.selected_b2b = all_teams
-            st.session_state.excluded_b2b = []
-        
-        from streamlit_sortables import sort_items
-        # 🔥 [진짜 해결책] multi_containers=True 옵션을 명시적으로 때려 박았습니다!
-        res = sort_items([
-            {'header': '📋 조회할 팀 (좌우 드래그로 순서 정렬)', 'items': st.session_state.selected_b2b},
-            {'header': '🗑️ 제외할 팀 (이 상자로 던지면 표에서 제외)', 'items': st.session_state.excluded_b2b}
-        ], multi_containers=True)
-        
-        st.session_state.selected_b2b = res[0]
-        st.session_state.excluded_b2b = res[1]
-        selected_teams = res[0]
+        # 🔥 [원상복구 완벽 완료] 형님 요구대로 X 누르면 슥 빠지고 클릭하면 들어가는 오리지널 순수 컴포넌트 복귀!
+        selected_teams = st.multiselect(
+            "", 
+            options=all_teams, 
+            default=all_teams,
+            label_visibility="collapsed" # 유령 간격은 쫀쫀하게 유지
+        )
         
         if selected_teams:
             n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
             
+            # 🔥 형님이 클릭하여 배열한 칩 순서 그대로 표가 자동 추적 정렬되도록 고품격 보이지 않는 내부 정렬 적용!
             n_b2b_filtered['팀'] = pd.Categorical(n_b2b_filtered['팀'], categories=selected_teams, ordered=True)
             n_b2b_filtered = n_b2b_filtered.sort_values('팀').reset_index(drop=True)
             
@@ -236,6 +230,6 @@ if up and len(c_r) == 2 and len(n_r) == 2:
                 "평균 리드타임": "{:.2f}"
             }), use_container_width=True, hide_index=True)
         else:
-            st.warning("조회할 팀이 없습니다. 아래 '제외할 팀' 상자에서 원하는 팀을 위로 드래그해 올리세요!")
+            st.warning("선택된 팀이 없습니다. 목록에서 조회할 팀을 다시 선택해 주세요.")
     else:
         st.write("해당 기간의 데이터가 없습니다.")
