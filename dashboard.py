@@ -41,9 +41,9 @@ def process_data_for_dashboard(df, start_date, end_date):
     b2c_res = df_b2c.groupby('변환유형').agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
     b2c_res.columns = ['출고유형', '출고건수', '출고수량']
     
-    # 2. B2C 거래처별 집계 (오직 '국내B2C' 즉, 순수 B2C 주문만 필터링)
+    # 2. B2C 거래처별 집계
     df_b2c_pure = df_b2c[df_b2c['변환유형'] == '국내B2C'].copy()
-    customer_col = df.columns[8]  # 8번째 컬럼: 거래처명
+    customer_col = df.columns[8]
     b2c_cust_res = df_b2c_pure.groupby(customer_col).agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
     b2c_cust_res.columns = ['거래처', '출고건수', '출고수량']
 
@@ -61,7 +61,7 @@ def process_data_for_dashboard(df, start_date, end_date):
     df_b2b['추가수량값'] = np.where(df_b2b['조정요청일'] > df_b2b['최초등록영업일'], df_b2b['출하수량'], 0)
     
     team_col = df.columns[9]
-    u_df = df_b2b.groupby('건수기준').agg({team_col: 'first', '출고완료': 'first', '요청일자': 'max', '조정요청일': 'max'}).reset_index()
+    u_df = df_b2b.groupby('건수기준').agg({team_col: 'first', '출고완 완료': 'first', '요청일자': 'max', '조정요청일': 'max'}).reset_index()
     u_df['리드타임'] = (u_df['출고완료'] - u_df['조정요청일']).dt.total_seconds() / 86400
     u_df['긴급건'] = u_df['리드타임'].apply(lambda x: 1 if pd.notna(x) and x <= 2 else 0)
     
@@ -107,7 +107,7 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             c_cnt = n_b2c.loc[n_b2c['출고유형'] == cat, '출고건수'].sum() if not n_b2c.empty else 0
             p_cnt = c_b2c.loc[c_b2c['출고유형'] == cat, '출고건수'].sum() if not c_b2c.empty else 0
             c_qty = n_b2c.loc[n_b2c['출고유형'] == cat, '출고수량'].sum() if not n_b2c.empty else 0
-            p_qty = c_b2c.loc[c_b2c['출고유형'] == cat, '출고수량'].sum() if not c_b2c.empty else 0
+            p_qty = c_b2c.loc[c_b2c['출고유형'] == cat, '출하수량'].sum() if not c_b2c.empty else 0
             
             diff_cnt = c_cnt - p_cnt
             pct_cnt = f"({(diff_cnt / p_cnt * 100):+.1f}%)" if p_cnt > 0 else ("(New)" if c_cnt > 0 else "")
@@ -118,7 +118,7 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             st.metric("출고건수", f"{c_cnt:,} 건", delta=f"{diff_cnt:,} 건 {pct_cnt}")
             st.metric("출하수량", f"{c_qty:,.0f} EA", delta=f"{diff_qty:,.0f} EA {pct_qty}")
 
-    # 🔍 B2C 거래처별 전주 대비 상세 비교
+    # B2C 거래처별 전주 대비 상세 비교
     st.markdown("#### 🔍 B2C 거래처별 전주 대비 출고 현황 비교")
     if not n_b2c_cust.empty:
         b2c_merged = pd.merge(c_b2c_cust, n_b2c_cust, on='거래처', how='outer', suffixes=('_과거', '_현재')).fillna(0)
@@ -191,7 +191,6 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     st.markdown("**[ B2B 팀별 출고 현황 ]**")
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
-        # 🔥 [형님 요청 적극 반영] 라벨 숨김 옵션을 주어 붕 떠 있던 휑한 간격을 칼같이 차단했습니다!
         selected_teams = st.multiselect(
             "", 
             options=all_teams, 
@@ -202,6 +201,10 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
         
         if not n_b2b_filtered.empty:
+            # 🔥 [형님 요청 반영] 표의 순서가 위에 배치된 빨간 칩 순서와 100% 똑같이 매칭되도록 강제 정렬!
+            n_b2b_filtered['팀'] = pd.Categorical(n_b2b_filtered['팀'], categories=selected_teams, ordered=True)
+            n_b2b_filtered = n_b2b_filtered.sort_values('팀').reset_index(drop=True)
+            
             f_cnt = n_b2b_filtered['출고건수'].sum()
             f_qty = n_b2b_filtered['총 출하수량'].sum()
             f_urg = n_b2b_filtered['긴급건'].sum()
