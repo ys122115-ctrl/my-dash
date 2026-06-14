@@ -185,26 +185,26 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         else: st.info("B2B 차트 데이터가 없습니다.")
     with c2: 
         if not n_b2c.empty:
-            st.plotly_chart(px.pie(n_b2c, names='출고유형', values='출고건수', title="B2C 비율", hole=0.4), use_container_width=True)
+            # 🔥 [형님 피드백 반영] 크기순(내림차순)으로 완벽 정렬해서 무상출고가 무조건 꼴찌(끝)로 가게 강제 조정!
+            n_b2c_pie = n_b2c.sort_values(by='출고건수', ascending=False)
+            st.plotly_chart(px.pie(n_b2c_pie, names='출고유형', values='출고건수', title="B2C 비율", hole=0.4), use_container_width=True)
         else: st.info("B2C 차트 데이터가 없습니다.")
     
     st.markdown("**[ B2B 팀별 출고 현황 ]**")
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
-        all_teams.sort() # 가나다 순 기본 세팅
+        all_teams.sort()
         
-        # 🔥 [원상복구 완벽 완료] 형님 요구대로 X 누르면 슥 빠지고 클릭하면 들어가는 오리지널 순수 컴포넌트 복귀!
         selected_teams = st.multiselect(
             "", 
             options=all_teams, 
             default=all_teams,
-            label_visibility="collapsed" # 유령 간격은 쫀쫀하게 유지
+            label_visibility="collapsed"
         )
         
         if selected_teams:
             n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
             
-            # 🔥 형님이 클릭하여 배열한 칩 순서 그대로 표가 자동 추적 정렬되도록 고품격 보이지 않는 내부 정렬 적용!
             n_b2b_filtered['팀'] = pd.Categorical(n_b2b_filtered['팀'], categories=selected_teams, ordered=True)
             n_b2b_filtered = n_b2b_filtered.sort_values('팀').reset_index(drop=True)
             
