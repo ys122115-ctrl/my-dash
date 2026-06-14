@@ -31,12 +31,12 @@ def process_data_for_dashboard(df, start_date, end_date):
     p_df = df[(df['출고완료'] >= start) & (df['출고완료'] <= end)].copy()
     if p_df.empty: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0.0
 
-    # --- [🔥 B2C 필터링: 오직 'B2C'와 'B2C(우체국)' 두 가지만 수집] ---
+    # --- [B2C 필터링: 오직 'B2C'와 'B2C(우체국)' 두 가지만 분류] ---
     b2c_types = ['B2C', 'B2C(우체국)']
     df_b2c = p_df[p_df.iloc[:, 6].isin(b2c_types)].copy()
-    df_b2c['변환유형'] = df_b2c.iloc[:, 6] # 원본 유형명 그대로 사용
+    df_b2c['변환유형'] = df_b2c.iloc[:, 6]
     
-    # 1. B2C 유형별 요약 (B2C, B2C(우체국)만 집계)
+    # 1. B2C 유형별 요약
     b2c_res = df_b2c.groupby('변환유형').agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
     b2c_res.columns = ['출고유형', '출고건수', '출고수량']
     
@@ -95,8 +95,8 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     # B2C 전주 대비 요약 섹션
     # -----------------------------------------------------------------
     st.subheader(f"🛒 B2C 전주 대비 요약 ({n_r[0]} ~ {n_r[1]})")
-    b2c_categories = ['B2C', 'B2C(우체국)']  # 2개 유형으로 제한
-    b2c_cols = st.columns(2)  # 2분할 레이아웃으로 변경
+    b2c_categories = ['B2C', 'B2C(우체국)']
+    b2c_cols = st.columns(2)
 
     for i, cat in enumerate(b2c_categories):
         with b2c_cols[i]:
@@ -116,7 +116,7 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             st.metric("출고건수", f"{c_cnt:,} 건", delta=f"{diff_cnt:,} 건 {pct_cnt}")
             st.metric("출하수량", f"{c_qty:,.0f} EA", delta=f"{diff_qty:,.0f} EA {pct_qty}")
 
-    # B2C 거래처별 전주 대비 상세 비교
+    # 🔍 B2C 거래처별 전주 대비 상세 비교
     st.markdown("#### 🔍 B2C 거래처별 전주 대비 출고 수량 증감 현황")
     if not n_b2c_cust.empty:
         b2c_merged = pd.merge(c_b2c_cust, n_b2c_cust, on='거래처', how='outer', suffixes=('_과거', '_현재')).fillna(0)
@@ -130,11 +130,16 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         
         tab1, tab2 = st.tabs(["📊 거래처별 증감 그래프", "📄 상세 데이터 표"])
         with tab1:
-            st.plotly_chart(px.bar(
-                b2c_merged.head(15), x='수량 증감', y='거래처', orientation='h',
-                title="B2C 거래처별 출고 수량 증감 상위 15개사 (전주 대비)",
-                color='수량 증감', color_continuous_scale=px.colors.sequential.Bluered_r
-            ), use_container_width=True)
+            # 🔥 [형님 피드백 반영] 짜치는 가로형에서 형님 그림판 가이드대로 든든한 '세로형 막대그래프'로 대수술!
+            fig = px.bar(
+                b2c_merged.head(10), x='거래처', y='수량 증감',
+                title="B2C 거래처별 출고 수량 증감 상위 10개사 (전주 대비)",
+                color='수량 증감',
+                color_continuous_scale=px.colors.diverging.Tealrose, # 마이너스는 붉은색, 플러스는 푸른색 계열로 직관적 세팅
+                text_auto='.0f' # 막대 위에 수량 수치 바로 찍어주기
+            )
+            fig.update_layout(xaxis_tickangle=-45) # 거래처 이름 안 겹치게 비스듬히 돌리기
+            st.plotly_chart(fig, use_container_width=True)
         with tab2:
             st.dataframe(b2c_merged.style.format({
                 "과거 건수": "{:,.0f}", "현재 건수": "{:,.0f}", "건수 증감": "{:+,.0f}",
