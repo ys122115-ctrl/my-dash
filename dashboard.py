@@ -192,20 +192,18 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
         
-        # 🔥 [안전 패치] 데이터 분실을 완벽 차단하는 고정형 세션 분리 구조 작동
-        if 'last_file' not in st.session_state or st.session_state.last_file != up.name:
+        # 🔥 [3중 철벽 방어 패치] 메모리에서 단 하나라도 유실되면 무조건 강제 부활시키는 로직으로 대개조!
+        if 'selected_b2b' not in st.session_state or 'excluded_b2b' not in st.session_state or st.session_state.get('last_file') != up.name:
             st.session_state.last_file = up.name
             st.session_state.selected_b2b = all_teams
             st.session_state.excluded_b2b = []
         
         from streamlit_sortables import sort_items
-        # 구조가 무너지지 않도록 매 루프마다 명확한 딕셔너리로 감싸서 부품에 전달
         res = sort_items([
             {'header': '📋 조회할 팀 (좌우 드래그로 순서 정렬)', 'items': st.session_state.selected_b2b},
             {'header': '🗑️ 제외할 팀 (이 상자로 던지면 표에서 제외)', 'items': st.session_state.excluded_b2b}
         ])
         
-        # 순수한 리스트 알맹이만 골라내어 세션 상태값 수동 업데이트
         st.session_state.selected_b2b = res[0]
         st.session_state.excluded_b2b = res[1]
         selected_teams = res[0]
