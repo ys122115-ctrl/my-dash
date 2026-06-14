@@ -117,7 +117,7 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             st.metric("출하수량", f"{c_qty:,.0f} EA", delta=f"{diff_qty:,.0f} EA {pct_qty}")
 
     # 🔍 B2C 거래처별 전주 대비 상세 비교
-    st.markdown("#### 🔍 B2C 거래처별 전주 대비 출고 수량 증감 현황")
+    st.markdown("#### 🔍 B2C 거래처별 전주 대비 출고 현황 비교")
     if not n_b2c_cust.empty:
         b2c_merged = pd.merge(c_b2c_cust, n_b2c_cust, on='거래처', how='outer', suffixes=('_과거', '_현재')).fillna(0)
         b2c_merged['수량 증감'] = b2c_merged['출고수량_현재'] - b2c_merged['출고수량_과거']
@@ -126,19 +126,24 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         b2c_merged = b2c_merged[['거래처', '출고건수_과거', '출고건수_현재', '건수 증감', '출고수량_과거', '출고수량_현재', '수량 증감']]
         b2c_merged.columns = ['거래처', '과거 건수', '현재 건수', '건수 증감', '과거 수량(EA)', '현재 수량(EA)', '수량 증감']
         
-        b2c_merged = b2c_merged.sort_values(by='수량 증감', ascending=False)
+        # 🔥 [형님 피드백 반영] 건수 기준으로 비교하기 위해 '현재 건수'가 가장 많은 거래처 순으로 정렬!
+        b2c_merged = b2c_merged.sort_values(by='현재 건수', ascending=False)
         
-        tab1, tab2 = st.tabs(["📊 거래처별 증감 그래프", "📄 상세 데이터 표"])
+        tab1, tab2 = st.tabs(["📊 거래처별 건수 비교 그래프", "📄 상세 데이터 표"])
         with tab1:
-            # 🔥 [형님 피드백 반영] 짜치는 가로형에서 형님 그림판 가이드대로 든든한 '세로형 막대그래프'로 대수술!
+            # 🔥 [형님 피드백 반영] 과거 건수와 현재 건수 막대를 이웃하게 배치하여 전주 대비 차이를 직관적으로 확인!
             fig = px.bar(
-                b2c_merged.head(10), x='거래처', y='수량 증감',
-                title="B2C 거래처별 출고 수량 증감 상위 10개사 (전주 대비)",
-                color='수량 증감',
-                color_continuous_scale=px.colors.diverging.Tealrose, # 마이너스는 붉은색, 플러스는 푸른색 계열로 직관적 세팅
-                text_auto='.0f' # 막대 위에 수량 수치 바로 찍어주기
+                b2c_merged.head(10), x='거래처', y=['과거 건수', '현재 건수'],
+                barmode='group', # 막대 두 개를 옆으로 나란히 배치
+                title="B2C 주요 거래처별 출고 건수 비교 상위 10개사 (과거 vs 현재)",
+                color_discrete_sequence=['#A7BED3', '#FF6B6B'], # 과거는 차분한 블루그레이, 현재는 눈에 띄는 산호색 레드
+                text_auto='.0f' # 막대 끝에 건수 숫자 즉시 노출
             )
-            fig.update_layout(xaxis_tickangle=-45) # 거래처 이름 안 겹치게 비스듬히 돌리기
+            fig.update_layout(
+                xaxis_tickangle=-45, 
+                yaxis_title="출고 건수 (건)",
+                legend_title_text=''
+            )
             st.plotly_chart(fig, use_container_width=True)
         with tab2:
             st.dataframe(b2c_merged.style.format({
