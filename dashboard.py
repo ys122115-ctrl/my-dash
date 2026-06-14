@@ -192,18 +192,23 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
         
+        # 🔥 [안전 패치] 데이터 분실을 완벽 차단하는 고정형 세션 분리 구조 작동
         if 'last_file' not in st.session_state or st.session_state.last_file != up.name:
             st.session_state.last_file = up.name
-            st.session_state.b2b_container = [
-                {'header': '📋 조회할 팀 (좌우 드래그로 순서 정렬)', 'items': all_teams},
-                {'header': '🗑️ 제외할 팀 (이 상자로 던지면 표에서 제외)', 'items': []}
-            ]
+            st.session_state.selected_b2b = all_teams
+            st.session_state.excluded_b2b = []
         
         from streamlit_sortables import sort_items
-        # 🔥 형님이 지우라고 하신 구질구질한 한글 텍스트(st.markdown)를 완벽하게 날려버렸습니다!
-        updated_container = sort_items(st.session_state.b2b_container)
-        st.session_state.b2b_container = updated_container
-        selected_teams = updated_container[0]['items']
+        # 구조가 무너지지 않도록 매 루프마다 명확한 딕셔너리로 감싸서 부품에 전달
+        res = sort_items([
+            {'header': '📋 조회할 팀 (좌우 드래그로 순서 정렬)', 'items': st.session_state.selected_b2b},
+            {'header': '🗑️ 제외할 팀 (이 상자로 던지면 표에서 제외)', 'items': st.session_state.excluded_b2b}
+        ])
+        
+        # 순수한 리스트 알맹이만 골라내어 세션 상태값 수동 업데이트
+        st.session_state.selected_b2b = res[0]
+        st.session_state.excluded_b2b = res[1]
+        selected_teams = res[0]
         
         if selected_teams:
             n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
