@@ -107,7 +107,6 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             c_cnt = n_b2c.loc[n_b2c['출고유형'] == cat, '출고건수'].sum() if not n_b2c.empty else 0
             p_cnt = c_b2c.loc[c_b2c['출고유형'] == cat, '출고건수'].sum() if not c_b2c.empty else 0
             c_qty = n_b2c.loc[n_b2c['출고유형'] == cat, '출고수량'].sum() if not n_b2c.empty else 0
-            # 🔥 [버그 수정 완료] '출하수량' 오타를 정상 이름인 '출고수량'으로 고쳤습니다!
             p_qty = c_b2c.loc[c_b2c['출고유형'] == cat, '출고수량'].sum() if not c_b2c.empty else 0
             
             diff_cnt = c_cnt - p_cnt
@@ -193,18 +192,20 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
         
-        chosen_teams = st.multiselect(
-            "", 
-            options=all_teams, 
-            default=all_teams,
-            label_visibility="collapsed"
-        )
+        if 'last_file' not in st.session_state or st.session_state.last_file != up.name:
+            st.session_state.last_file = up.name
+            st.session_state.b2b_container = [
+                {'header': '📋 조회할 팀 (좌우 드래그로 순서 정렬)', 'items': all_teams},
+                {'header': '🗑️ 제외할 팀 (이 상자로 던지면 표에서 제외)', 'items': []}
+            ]
         
-        if chosen_teams:
-            from streamlit_sortables import sort_items
-            st.markdown("↕️ **마우스로 드래그해서 표의 순서를 자유롭게 배열하세요:**")
-            selected_teams = sort_items(chosen_teams, direction="horizontal")
-            
+        from streamlit_sortables import sort_items
+        # 🔥 형님이 지우라고 하신 구질구질한 한글 텍스트(st.markdown)를 완벽하게 날려버렸습니다!
+        updated_container = sort_items(st.session_state.b2b_container)
+        st.session_state.b2b_container = updated_container
+        selected_teams = updated_container[0]['items']
+        
+        if selected_teams:
             n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
             
             n_b2b_filtered['팀'] = pd.Categorical(n_b2b_filtered['팀'], categories=selected_teams, ordered=True)
@@ -232,6 +233,6 @@ if up and len(c_r) == 2 and len(n_r) == 2:
                 "평균 리드타임": "{:.2f}"
             }), use_container_width=True, hide_index=True)
         else:
-            st.warning("선택된 팀이 없습니다. 위 목록에서 조회할 팀을 선택해주세요.")
+            st.warning("조회할 팀이 없습니다. 아래 '제외할 팀' 상자에서 원하는 팀을 위로 드래그해 올리세요!")
     else:
         st.write("해당 기간의 데이터가 없습니다.")
