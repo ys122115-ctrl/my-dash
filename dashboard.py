@@ -31,22 +31,21 @@ def process_data_for_dashboard(df, start_date, end_date):
     p_df = df[(df['출고완료'] >= start) & (df['출고완료'] <= end)].copy()
     if p_df.empty: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0.0
 
-    # --- [B2C 정리] ---
-    b2c_mapping = {'B2C': '국내B2C', 'B2C(우체국)': '국내B2C', '택배무상출고': '무상출고', 
-                   '택배무상출고(ERP)': '무상출고', '택배판매출고(ERP)': '무상출고', '해외출고': '해외B2C'}
-    df_b2c = p_df[p_df.iloc[:, 6].isin(b2c_mapping.keys())].copy()
-    df_b2c['변환유형'] = df_b2c.iloc[:, 6].map(b2c_mapping)
+    # --- [🔥 B2C 필터링: 오직 'B2C'와 'B2C(우체국)' 두 가지만 수집] ---
+    b2c_types = ['B2C', 'B2C(우체국)']
+    df_b2c = p_df[p_df.iloc[:, 6].isin(b2c_types)].copy()
+    df_b2c['변환유형'] = df_b2c.iloc[:, 6] # 원본 유형명 그대로 사용
     
-    # 1. B2C 유형별 요약 (국내, 해외, 무상)
+    # 1. B2C 유형별 요약 (B2C, B2C(우체국)만 집계)
     b2c_res = df_b2c.groupby('변환유형').agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
     b2c_res.columns = ['출고유형', '출고건수', '출고수량']
     
-    # 2. 🔥 [형님 맞춤형] B2C 택배사 구분 없이 '오직 거래처 덩어리'로만 집계
+    # 2. B2C 거래처별 집계
     customer_col = df.columns[8]  # 8번째 컬럼: 거래처명
     b2c_cust_res = df_b2c.groupby(customer_col).agg({df.columns[0]: 'nunique', '출하수량': 'sum'}).reset_index()
     b2c_cust_res.columns = ['거래처', '출고건수', '출고수량']
 
-    # --- [B2B 정리] ---
+    # --- [B2B 정리: 일반 출고 건만 수집] ---
     df_b2b = p_df[p_df.iloc[:, 6] == '일반'].copy()
     if df_b2b.empty: return b2c_res, b2c_cust_res, pd.DataFrame(), 0.0
     
@@ -96,8 +95,8 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     # B2C 전주 대비 요약 섹션
     # -----------------------------------------------------------------
     st.subheader(f"🛒 B2C 전주 대비 요약 ({n_r[0]} ~ {n_r[1]})")
-    b2c_categories = ['국내B2C', '해외B2C', '무상출고']
-    b2c_cols = st.columns(3)
+    b2c_categories = ['B2C', 'B2C(우체국)']  # 2개 유형으로 제한
+    b2c_cols = st.columns(2)  # 2분할 레이아웃으로 변경
 
     for i, cat in enumerate(b2c_categories):
         with b2c_cols[i]:
@@ -117,7 +116,7 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             st.metric("출고건수", f"{c_cnt:,} 건", delta=f"{diff_cnt:,} 건 {pct_cnt}")
             st.metric("출하수량", f"{c_qty:,.0f} EA", delta=f"{diff_qty:,.0f} EA {pct_qty}")
 
-    # 📊 B2C 거래처별 전주 대비 상세 비교 (오직 거래처 단위 집계)
+    # B2C 거래처별 전주 대비 상세 비교
     st.markdown("#### 🔍 B2C 거래처별 전주 대비 출고 수량 증감 현황")
     if not n_b2c_cust.empty:
         b2c_merged = pd.merge(c_b2c_cust, n_b2c_cust, on='거래처', how='outer', suffixes=('_과거', '_현재')).fillna(0)
@@ -127,12 +126,10 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         b2c_merged = b2c_merged[['거래처', '출고건수_과거', '출고건수_현재', '건수 증감', '출고수량_과거', '출고수량_현재', '수량 증감']]
         b2c_merged.columns = ['거래처', '과거 건수', '현재 건수', '건수 증감', '과거 수량(EA)', '현재 수량(EA)', '수량 증감']
         
-        # 증감량이 큰 순서대로 정렬
         b2c_merged = b2c_merged.sort_values(by='수량 증감', ascending=False)
         
         tab1, tab2 = st.tabs(["📊 거래처별 증감 그래프", "📄 상세 데이터 표"])
         with tab1:
-            # 깔끔하게 가로 막대 그래프로 표현 (수량 증감)
             st.plotly_chart(px.bar(
                 b2c_merged.head(15), x='수량 증감', y='거래처', orientation='h',
                 title="B2C 거래처별 출고 수량 증감 상위 15개사 (전주 대비)",
