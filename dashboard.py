@@ -191,11 +191,12 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     st.markdown("**[ B2B 팀별 출고 현황 ]**")
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
-        # 🔥 [형님 피드백 반영] 불필요한 안내문구를 완전히 지워서 여백의 미를 살렸습니다!
+        # 🔥 [형님 요청 적극 반영] 라벨 숨김 옵션을 주어 붕 떠 있던 휑한 간격을 칼같이 차단했습니다!
         selected_teams = st.multiselect(
             "", 
             options=all_teams, 
-            default=all_teams
+            default=all_teams,
+            label_visibility="collapsed"
         )
         
         n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
