@@ -107,7 +107,8 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             c_cnt = n_b2c.loc[n_b2c['출고유형'] == cat, '출고건수'].sum() if not n_b2c.empty else 0
             p_cnt = c_b2c.loc[c_b2c['출고유형'] == cat, '출고건수'].sum() if not c_b2c.empty else 0
             c_qty = n_b2c.loc[n_b2c['출고유형'] == cat, '출고수량'].sum() if not n_b2c.empty else 0
-            p_qty = c_b2c.loc[c_b2c['출고유형'] == cat, '출하수량'].sum() if not c_b2c.empty else 0
+            # 🔥 [버그 수정 완료] '출하수량' 오타를 정상 이름인 '출고수량'으로 고쳤습니다!
+            p_qty = c_b2c.loc[c_b2c['출고유형'] == cat, '출고수량'].sum() if not c_b2c.empty else 0
             
             diff_cnt = c_cnt - p_cnt
             pct_cnt = f"({(diff_cnt / p_cnt * 100):+.1f}%)" if p_cnt > 0 else ("(New)" if c_cnt > 0 else "")
@@ -192,7 +193,6 @@ if up and len(c_r) == 2 and len(n_r) == 2:
     if not n_b2b.empty:
         all_teams = n_b2b['팀'].unique().tolist()
         
-        # 1단계: 멀티셀렉트로 조회할 팀 고르기
         chosen_teams = st.multiselect(
             "", 
             options=all_teams, 
@@ -201,14 +201,12 @@ if up and len(c_r) == 2 and len(n_r) == 2:
         )
         
         if chosen_teams:
-            # 2단계: 🔥 [형님 핵심 요청 반영] 골라진 팀들을 마우스 드래그로 순서 배열할 수 있는 컴포넌트 등장!!
             from streamlit_sortables import sort_items
             st.markdown("↕️ **마우스로 드래그해서 표의 순서를 자유롭게 배열하세요:**")
             selected_teams = sort_items(chosen_teams, direction="horizontal")
             
             n_b2b_filtered = n_b2b[n_b2b['팀'].isin(selected_teams)].copy()
             
-            # 드래그한 순서 그대로 표 정렬 강제 적용!
             n_b2b_filtered['팀'] = pd.Categorical(n_b2b_filtered['팀'], categories=selected_teams, ordered=True)
             n_b2b_filtered = n_b2b_filtered.sort_values('팀').reset_index(drop=True)
             
