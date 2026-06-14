@@ -218,4 +218,3 @@ if up and len(c_r) == 2 and len(n_r) == 2:
             st.warning("선택된 팀이 없습니다. 위 목록에서 조회할 팀을 선택해주세요.")
     else:
         st.write("해당 기간의 데이터가 없습니다.")
-```
